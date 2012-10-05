@@ -1,6 +1,6 @@
 {-# LANGUAGE DataKinds, TypeFamilies, TypeOperators #-}
 
-{-# LANGUAGE FlexibleContexts, UndecidableInstances #-}
+{-# LANGUAGE FlexibleContexts, UndecidableInstances, GADTs #-}
 
 module Examples where
 
@@ -13,8 +13,9 @@ import Data.PVGD.W (W(W0, W1, W2), unW0, unW1, unW2, asW1, asW2)
 -- the generic view
 import Data.PVGD.View
   (Rep, Generic, toRep, frRep,
-   U(U), (:*:)((:*:)), (:+:)(L, R), foldPlus, Par(Par), unPar,
-   T(T), unT)
+   U(U), (:*:)((:*:)), (:+:)(L, R), foldPlus,
+--   QU(QU), unQU, Idxd(Idxd), unIdxd,
+   Par(Par), unPar, T(T), unT)
 
 -- the Covariant class with a generic definition
 import Data.PVGD.Covariant (Covariant, covmap, Maps(Maps))
@@ -56,9 +57,9 @@ type instance Rep [] = U   :+:   Par Z :*: T [] '[Par Z]
 instance Generic [] where
   toRep (W1 x) = case x of
     [] -> L U
-    a : as -> R $ Par a :*: T (W1 (map Par as))
+    a : as -> R $ Par a :*: T (W1 as)
   frRep (L U) = W1 []
-  frRep (R (Par a :*: T (W1 as))) = W1 $ a : map unPar as
+  frRep (R (Par a :*: T (W1 as))) = W1 $ a : as
 
 instance Covariant () -- NB non-sensical, but well-typed
 instance Covariant Bool -- NB non-sensical, but well-typed
@@ -100,8 +101,8 @@ data Ex1 (b :: *) (a :: *) = Ex1 [Either a b] deriving Show
 
 type instance Rep Ex1 = T [] '[T Either '[Par (S Z), Par Z]]
 instance Generic Ex1 where
-  toRep (W2 (Ex1 x)) = T $ W1 $ map (T . covmap (Maps Covariant.::: Par Covariant.::: Par) . W2) x
-  frRep = W2 . Ex1 . map (unW2 . covmap (Maps Covariant.::: unPar Covariant.::: unPar) . unT) . unW1 . unT
+  toRep (W2 (Ex1 x)) = T $ W1 x
+  frRep = W2 . Ex1 . unW1 . unT
 
 instance (Eq b, Eq a) => Eq (Ex1 b a) where (==) = gen_eq2
 instance Covariant Ex1
@@ -112,8 +113,8 @@ data Ex2 (b :: *) (a :: *) = Ex2 (Either [a] b) deriving Show
 
 type instance Rep Ex2 = T Either '[Par (S Z), T [] '[Par Z]]
 instance Generic Ex2 where
-  toRep (W2 (Ex2 x)) = T $ covmap (Maps Covariant.::: (T . W1 . map Par) Covariant.::: Par) $ W2 x
-  frRep = W2 . Ex2 . unW2 . covmap (Maps Covariant.::: (map unPar . unW1 . unT) Covariant.::: unPar) . unT
+  toRep (W2 (Ex2 x)) = T $ W2 x
+  frRep = W2 . Ex2 . unW2 . unT
 
 instance (Eq b, Eq a) => Eq (Ex2 b a) where (==) = gen_eq2
 instance Covariant Ex2
@@ -129,20 +130,18 @@ data X f (b :: *) (a :: *) = X Int (f a b) deriving Show
 
 -- the arguments to T f are reversed
 type instance Rep (X f) = T Int '[] :*: T f '[Par (S Z), Par Z]
-instance Covariant f => Generic (X f) where
-  toRep (W2 (X i fba)) =
-    T (W0 i) :*: T (covmap (Maps Covariant.::: Par Covariant.::: Par) $ W2 fba)
-  frRep (T (W0 i) :*: T fba) =
-    W2 $ X i $ unW2 $ covmap (Maps Covariant.::: unPar Covariant.::: unPar) fba
+instance Generic (X f) where
+  toRep (W2 (X i fba)) = T (W0 i) :*: T (W2 fba)
+  frRep (T (W0 i) :*: T (W2 fba)) = W2 $ X i fba
 
 instance Covariant Int where covmap Maps (W0 x) = W0 x
 instance Covariant f => Covariant (X f)
 
 instance Enumerate Int where enum Enums = map W0 $ Enumerate.interleave [0, -1..] [1,2..]
 instance Enumerate Char where enum Enums = map W0 $ [minBound..maxBound]
-instance (Covariant f, Enumerate f) => Enumerate (X f)
+instance Enumerate f => Enumerate (X f)
 
-instance (Covariant f, Eq (Rep (X f) '[a, b])) => Eq (X f b a) where (==) = gen_eq2
+instance Eq (Rep (X f) '[a, b]) => Eq (X f b a) where (==) = gen_eq2
 
 --------------------
 -- another rich example with non-regular mutual recursion
@@ -153,14 +152,14 @@ newtype Flop (b :: *) (a :: *) = Flop (Flip a b) deriving Show
 type instance Rep Flip = Par (S Z) :*: Par Z   :+:   T Flop '[Par (S Z), Par Z]
 instance Generic Flip where
   toRep (W2 (Stop b a)) = L $ Par b :*: Par a
-  toRep (W2 (Flip x))   = R $ T $ covmap (Maps Covariant.::: Par Covariant.::: Par) $ W2 x
+  toRep (W2 (Flip x))   = R $ T $ W2 x
   frRep (L (Par b :*: Par a)) = W2 $ Stop b a
-  frRep (R (T x)) = W2 $ Flip $ unW2 $ covmap (Maps Covariant.::: unPar Covariant.::: unPar) x
+  frRep (R (T (W2 x))) = W2 $ Flip x
 
 type instance Rep Flop = T Flip '[Par (S Z), Par Z]
 instance Generic Flop where
-  toRep (W2 (Flop x)) = T $ covmap (Maps Covariant.::: Par Covariant.::: Par) $ W2 x
-  frRep = W2 . Flop . unW2 . covmap (Maps Covariant.::: unPar Covariant.::: unPar) . unT
+  toRep (W2 (Flop x)) = T $ W2 x
+  frRep = W2 . Flop . unW2 . unT
 
 instance Covariant Flip
 instance Covariant Flop
@@ -188,3 +187,28 @@ example7 = map unW2 $ enum (Enums Enumerate.::: map unW0 (enum Enums) Enumerate.
 example8 = map unW2 $ enum (Enums Enumerate.::: map unW0 (enum Enums) Enumerate.::: map unW0 (enum Enums)) :: [X (,) Bool Bool]
 example9 = map unW2 $ enum (Enums Enumerate.::: map unW0 (enum Enums) Enumerate.::: map unW0 (enum Enums)) :: [Flip Bool Bool]
 example10 = map unW2 $ enum (Enums Enumerate.::: map unW0 (enum Enums) Enumerate.::: map unW0 (enum Enums)) :: [X Either () Bool]
+
+
+
+
+
+{-
+data GADT :: * -> * where
+  GADT_Int :: GADT Int
+  GADT_Char :: GADT Char
+  GADT_Bool :: GADT Bool
+  GADT_List :: GADT a -> GADT [a]
+  GADT_Pair :: GADT b -> GADT a -> GADT (b, a)
+
+type instance Rep GADT =
+  (Idxd Z (T Int '[]) U  :+:
+   Idxd Z (T Char '[]) U :+:
+   Idxd Z (T Bool '[]) U)     :+:
+  (QU (Idxd (S Z) (T [] '[Par Z]) (T GADT '[Par Z])) :+:
+   QU (QU (Idxd (S (S Z)) (T (,) '[Par Z, Par (S Z)]) (T GADT '[Par (S Z)] :*: T GADT '[Par Z]))))
+
+instance Generic GADT where
+  toRep (W1 GADT_Int) = L $ L $ Idxd $ U
+  toRep (W1 (GADT_List a)) = R $ L $ Idxd $
+  frRep (L (L (Idxd _))) = W1 GADT_Int
+-}

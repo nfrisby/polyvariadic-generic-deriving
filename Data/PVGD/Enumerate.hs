@@ -84,18 +84,33 @@ instance (n ~ S n', NthEnumR m n') => NthEnumR (S m) n where
 
 
 
-instance (Lemma_NLongLengthZAP argReps,
+instance (Lemma_NLongLengthMapEval argReps,
           Enumerate t, NewEnums argReps n,
           CountArgs ('KindProxy :: KindProxy k) ~ Length argReps) =>
   EnumerateR (T (t :: k) argReps) n where
   enumR :: forall (ps :: [*]). NLong n ps => Enums n ps -> [T t argReps ps]
-  enumR = lemma_NLongLengthZAP (Proxy :: Proxy argReps) (Proxy :: Proxy ps) $
+  enumR = lemma_NLongLengthMapEval (Proxy :: Proxy argReps) (Proxy :: Proxy ps) $
           map T . enum . newEnums (Proxy :: Proxy argReps)
 
 class NewEnums (argReps :: [[*] -> *]) (n :: Nat) where
-  newEnums :: NLong n ps => Proxy argReps -> Enums n ps -> Enums (Length argReps) (ZAP argReps ps)
+  newEnums :: NLong n ps => Proxy argReps -> Enums n ps -> Enums (Length argReps) (MapEval argReps ps)
 
 instance NewEnums '[] n where newEnums _ _ = Enums
-instance (EnumerateR argRep n, NewEnums argReps n) =>
+instance (EnumerateR argRep n, NewEnums argReps n, EnumEval argRep n) =>
   NewEnums (argRep ': argReps) n where
-  newEnums _ enums = newEnums (Proxy :: Proxy argReps) enums ::: enumR enums
+  newEnums _ enums = newEnums (Proxy :: Proxy argReps) enums :::
+                     enumEval (Proxy :: Proxy argRep) enums
+
+
+class EnumEval (argRep :: [*] -> *) (n :: Nat) where
+  enumEval :: NLong n ps => Proxy argRep -> Enums n ps -> [Eval argRep ps]
+
+instance NthEnumR m n => EnumEval (Par m) n where
+  enumEval _ = nthEnumR (Proxy :: Proxy m)
+
+instance (WIso t, EnumerateR (T t argReps) n) => EnumEval (T t argReps) n where
+  enumEval :: forall (ps :: [*]). NLong n ps =>
+              Proxy (T t argReps) -> Enums n ps -> [Eval (T t argReps) ps]
+  enumEval _ = map (toApps . unT) .
+               (id :: [T t argReps ps] -> [T t argReps ps]) .
+               enumR

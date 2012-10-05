@@ -1,8 +1,10 @@
-{-# LANGUAGE TypeFamilies, PolyKinds, DataKinds, TypeOperators #-}
+{-# LANGUAGE TypeFamilies, PolyKinds, DataKinds, TypeOperators, Rank2Types #-}
 
 {-# LANGUAGE StandaloneDeriving #-}
 
-{-# LANGUAGE FlexibleContexts, UndecidableInstances #-}
+{-# LANGUAGE FlexibleContexts, UndecidableInstances, GADTs #-}
+
+{-# LANGUAGE ScopedTypeVariables #-}
 
 {-
 
@@ -93,10 +95,65 @@ unPar (Par x) = x
 --------------------
 -- representation type for type applications
 
--- NB @rs@ is a (reversed) type list of representations, the use of @ZAP@ is a
--- promotion of @map ($ ps)@; recall that W essentially uncurryies t
-newtype T t rs ps = T (W t (ZAP rs ps))
-deriving instance Eq (W t (ZAP argReps ps)) => Eq (T t argReps ps)
-deriving instance Show (W t (ZAP argReps ps)) => Show (T t argReps ps)
+type family Eval (r :: [*] -> *) (ps :: [*]) :: *
+
+type instance Eval (Par n) ps = Nth n ps
+type instance Eval (T t rs) ps = Apps t (MapEval rs ps)
+
+-- psuedo: @map (\x -> Eval x ps)@
+type family MapEval (fs :: [[*] -> *]) (arg :: [*]) :: [*]
+type instance MapEval '[]       arg = '[]
+type instance MapEval (f ': fs) arg = Eval f arg ': MapEval fs arg
+
+-- lemma for CovariantR at T
+class Lemma_NLongLengthMapEval (fs :: [[*] -> *]) where
+  lemma_NLongLengthMapEval :: Proxy fs -> Proxy arg ->
+    (NLong (Length fs) (MapEval fs arg) => a) -> a
+
+instance Lemma_NLongLengthMapEval '[] where lemma_NLongLengthMapEval _ _ x = x
+instance Lemma_NLongLengthMapEval ts => Lemma_NLongLengthMapEval (t ': ts) where
+  lemma_NLongLengthMapEval _ pArg x = lemma_NLongLengthMapEval (Proxy :: Proxy ts) pArg x
+
+
+
+-- NB @rs@ is a (reversed) type list of representations, the use of @MapEval@ is a
+-- promotion of @map (\x -> Eval x ps)@; recall that W essentially uncurries t
+newtype T t argReps ps = T (W t (MapEval argReps ps))
+deriving instance Eq (W t (MapEval argReps ps)) => Eq (T t argReps ps)
+deriving instance Show (W t (MapEval argReps ps)) => Show (T t argReps ps)
 
 unT (T x) = x
+
+
+
+
+
+{- NB deprecated -- I don't think it should add the parameter itself)
+newtype Idxd (idx :: [*] -> *) (r :: [*] -> *) (ps :: [*])
+  = Idxd (r (Eval idx ps ': ps))
+
+unIdxd (Idxd x) = x
+-}
+
+data Idxd :: Nat -> ([*] -> *) -> ([*] -> *) -> [*] -> * where
+  Idxd :: (Nth n ps ~ Eval idx ps) => r ps -> Idxd n idx r ps
+
+unIdxd (Idxd x) = x
+
+
+{- TODO
+
+Maybe generic definitions over these could be shaped like generic definitions
+over T if we had a generic representation of Constraints.
+
+data QE :: (* -> Constraint) -> ([*] -> *) -> [*] -> * where
+  QE :: c a => r (a ': ps) -> QE c r ps
+
+newtype QU (c :: * -> Constraint) (r :: [*] -> *) (ps :: [*])
+  = QU (forall a. c a => r (a ': ps))
+-}
+
+
+newtype QU (r :: [*] -> *) (ps :: [*]) = QU (forall a. r (a ': ps))
+
+unQU (QU x) = x

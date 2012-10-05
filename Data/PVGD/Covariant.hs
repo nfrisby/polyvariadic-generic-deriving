@@ -78,15 +78,15 @@ instance (max ~ S max', NthMap n max')
 
 
 -- the case for type applications
-instance (Lemma_NLongLengthZAP argReps, Covariant t, NewMaps n argReps,
+instance (Lemma_NLongLengthMapEval argReps, Covariant t, NewMaps n argReps,
           -- NB could this next constraint perhaps be built into T?
           CountArgs ('KindProxy :: KindProxy k) ~ Length argReps
          ) => CovariantR (T (t :: k) argReps) n where
   covmapR :: forall ps ps'. (NLong n ps, NLong n ps') =>
              Maps n ps ps' -> T (t :: k) argReps ps -> T (t :: k) argReps ps'
   covmapR maps = -- the lemmas just introduce equality constraints
-                 lemma_NLongLengthZAP (Proxy :: Proxy argReps) (Proxy :: Proxy ps) $
-                 lemma_NLongLengthZAP (Proxy :: Proxy argReps) (Proxy :: Proxy ps') $
+                 lemma_NLongLengthMapEval (Proxy :: Proxy argReps) (Proxy :: Proxy ps) $
+                 lemma_NLongLengthMapEval (Proxy :: Proxy argReps) (Proxy :: Proxy ps') $
                  T . covmap (newMaps maps (Proxy :: Proxy argReps)) . unT
 
 
@@ -96,9 +96,44 @@ instance (Lemma_NLongLengthZAP argReps, Covariant t, NewMaps n argReps,
 class NewMaps n argReps where
   newMaps :: (NLong n ps, NLong n ps') =>
              Maps n ps ps' -> Proxy argReps ->
-             Maps (Length argReps) (ZAP argReps ps) (ZAP argReps ps')
+             Maps (Length argReps) (MapEval argReps ps) (MapEval argReps ps')
 
 instance NewMaps n '[] where newMaps _ _ = Maps
 
-instance (CovariantR argRep n, NewMaps n argReps) => NewMaps n (argRep ': argReps) where
-  newMaps maps _ = newMaps maps (Proxy :: Proxy argReps) ::: covmapR maps
+instance (CovariantR argRep n, NewMaps n argReps, EvalMap argRep n) => NewMaps n (argRep ': argReps) where
+  newMaps maps _ = newMaps maps (Proxy :: Proxy argReps) :::
+                   evalMap (Proxy :: Proxy argRep) maps
+
+
+
+
+-- the following is clearly dubious... indexed data types are not necessarily
+-- covariant
+
+{- NB deprecated; Idxd no longer adds a parameter
+instance (EvalMap idx n, CovariantR r (S n)) => CovariantR (Idxd idx r) n where
+  covmapR maps = Idxd . covmapR (maps ::: evalMap (Proxy :: Proxy idx) maps) . unIdxd
+-}
+class EvalMap (idx :: [*] -> *) n where
+  evalMap :: (NLong n ps, NLong n ps') =>
+             Proxy idx -> Maps n ps ps' -> Eval idx ps -> Eval idx ps'
+
+instance NthMap m n => EvalMap (Par m) n where
+  evalMap _ maps = nthMap (Proxy :: Proxy m) maps
+
+instance (WIso t, CovariantR (T t rs) n) =>
+  EvalMap (T (t :: k) rs) n where
+  evalMap :: forall (ps :: [*]) (ps' :: [*]). (NLong n ps, NLong n ps') =>
+             Proxy (T t rs) -> Maps n ps ps' ->
+             Eval (T t rs) ps -> Eval (T t rs) ps'
+  evalMap _ maps = toApps . unT . covmapR maps .
+                   (id :: T t rs ps -> T t rs ps) .
+                   T . frApps
+
+
+
+
+
+
+instance CovariantR r (S n) => CovariantR (QU r) n where
+  covmapR maps (QU x) = QU $ covmapR (maps ::: id) x

@@ -1,6 +1,7 @@
 {-# LANGUAGE TypeFamilies, PolyKinds, DataKinds #-}
 
-{-# LANGUAGE StandaloneDeriving, FlexibleContexts, UndecidableInstances #-}
+{-# LANGUAGE StandaloneDeriving, FlexibleContexts, UndecidableInstances,
+  FlexibleInstances #-}
 
 module Data.PVGD.W where
 
@@ -60,3 +61,47 @@ onW1 f = W1 . f . unW1
 onW2 f = W2 . f . unW2
 onW3 f = W3 . f . unW3
 
+
+
+
+-- cf W
+type family Apps (t :: k) (ps :: [*]) :: *
+type instance Apps (t :: *) ps = t
+type instance Apps (t :: * -> *) ps = t (Nth Z ps)
+type instance Apps (t :: * -> * -> *) ps = t (Nth (S Z) ps) (Nth Z ps)
+type instance Apps (t :: * -> * -> * -> *) ps
+  = t (Nth (S (S Z)) ps) (Nth (S Z) ps) (Nth Z ps)
+
+class WIso (t :: k) where
+  toApps :: W t ps -> Apps t ps
+  frApps :: Apps t ps -> W t ps
+
+instance WIso (t :: *) where toApps = unW0 ; frApps = W0
+instance WIso (t :: * -> *) where toApps = unW1 ; frApps = W1
+instance WIso (t :: * -> * -> *) where toApps = unW2 ; frApps = W2
+instance WIso (t :: * -> * -> * -> *) where toApps = unW3 ; frApps = W3
+
+
+
+
+
+
+
+
+newtype instance W (t :: * -> * -> * -> * -> *) ps
+  = W4 (t (Nth (S (S (S Z))) ps) (Nth (S (S Z)) ps) (Nth (S Z) ps) (Nth Z ps))
+deriving instance Show (t (Nth (S (S (S Z))) ps) (Nth (S (S Z)) ps) (Nth (S Z) ps) (Nth Z ps)) =>
+  Show (W (t :: * -> * -> * -> * -> *) ps)
+deriving instance Eq   (t (Nth (S (S (S Z))) ps) (Nth (S (S Z)) ps) (Nth (S Z) ps) (Nth Z ps)) =>
+  Eq   (W (t :: * -> * -> * -> * -> *) ps)
+
+unW4 (W4 x) = x
+
+asW4 f = unW4 . f . W4
+
+onW4 f = W4 . f . unW4
+
+type instance Apps (t :: * -> * -> * -> * -> *) ps
+  = t (Nth (S (S (S Z))) ps) (Nth (S (S Z)) ps) (Nth (S Z) ps) (Nth Z ps)
+
+instance WIso (t :: * -> * -> * -> * -> *) where toApps = unW4 ; frApps = W4
