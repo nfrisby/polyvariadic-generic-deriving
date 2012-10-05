@@ -159,6 +159,4 @@ newtype QU (c :: * -> Constraint) (r :: [*] -> *) (ps :: [*])
 -}
 
 
-newtype QU (r :: [*] -> *) (ps :: [*]) = QU (forall a. r (a ': ps))
-
-unQU (QU x) = x
+data QE (r :: [*] -> *) (ps :: [*]) = forall a. QE (r (a ': ps))

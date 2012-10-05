@@ -2,6 +2,8 @@
 
 {-# LANGUAGE FlexibleContexts, UndecidableInstances, GADTs #-}
 
+{-# LANGUAGE ExistentialQuantification #-}
+
 module Examples where
 
 -- basic type stuff
@@ -14,7 +16,7 @@ import Data.PVGD.W (W(W0, W1, W2), unW0, unW1, unW2, asW1, asW2)
 import Data.PVGD.View
   (Rep, Generic, toRep, frRep,
    U(U), (:*:)((:*:)), (:+:)(L, R), foldPlus,
---   QU(QU), unQU, Idxd(Idxd), unIdxd,
+   QE(QE), Idxd(Idxd),
    Par(Par), unPar, T(T), unT)
 
 -- the Covariant class with a generic definition
@@ -191,10 +193,26 @@ example10 = map unW2 $ enum (Enums Enumerate.::: map unW0 (enum Enums) Enumerate
 
 
 
+--------------------
+-- an unimportant existential
+data Exist0 (a :: *) = forall b. Exist0 (a, b)
 
-{-
+type instance Rep Exist0 = QE (T (,) '[Par Z, Par (S Z)])
+
+instance Generic Exist0 where
+  toRep (W1 (Exist0 p)) = QE $ T $ W2 p
+  frRep (QE (T (W2 p))) = W1 $ Exist0 p
+
+instance Covariant Exist0
+-- instance Enumerate Exist0   -- NB this would require some information about b
+
+
+
+
+
+
 data GADT :: * -> * where
-  GADT_Int :: GADT Int
+  GADT_Int  :: GADT Int
   GADT_Char :: GADT Char
   GADT_Bool :: GADT Bool
   GADT_List :: GADT a -> GADT [a]
@@ -204,11 +222,20 @@ type instance Rep GADT =
   (Idxd Z (T Int '[]) U  :+:
    Idxd Z (T Char '[]) U :+:
    Idxd Z (T Bool '[]) U)     :+:
-  (QU (Idxd (S Z) (T [] '[Par Z]) (T GADT '[Par Z])) :+:
-   QU (QU (Idxd (S (S Z)) (T (,) '[Par Z, Par (S Z)]) (T GADT '[Par (S Z)] :*: T GADT '[Par Z]))))
+  (QE (Idxd (S Z) (T [] '[Par Z])
+         (T GADT '[Par Z])) :+:
+   QE (QE (Idxd (S (S Z)) (T (,) '[Par Z, Par (S Z)])
+         (T GADT '[Par (S Z)] :*: T GADT '[Par Z]))))
 
 instance Generic GADT where
-  toRep (W1 GADT_Int) = L $ L $ Idxd $ U
-  toRep (W1 (GADT_List a)) = R $ L $ Idxd $
-  frRep (L (L (Idxd _))) = W1 GADT_Int
--}
+  toRep (W1 GADT_Int)  = L $ L $ Idxd $ U
+  toRep (W1 GADT_Char) = L $ R $ L $ Idxd $ U
+  toRep (W1 GADT_Bool) = L $ R $ R $ Idxd $ U
+  toRep (W1 (GADT_List a))   = R $ L $ QE $ Idxd $ T $ W1 a
+  toRep (W1 (GADT_Pair b a)) = R $ R $ QE $ QE $ Idxd $ T (W1 b) :*: T (W1 a)
+
+  frRep (L (L    (Idxd _)))  = W1 GADT_Int
+  frRep (L (R (L (Idxd _)))) = W1 GADT_Char
+  frRep (L (R (R (Idxd _)))) = W1 GADT_Bool
+  frRep (R (L (QE (Idxd (T (W1 a))))))                   = W1 $ GADT_List a
+  frRep (R (R (QE (QE (Idxd (T (W1 b) :*: T (W1 a))))))) = W1 $ GADT_Pair b a

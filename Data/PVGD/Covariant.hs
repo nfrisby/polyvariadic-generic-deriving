@@ -106,5 +106,5 @@ instance (CovariantR argRep n, NewMaps n argReps, Field argRep) => NewMaps n (ar
                     (id :: argRep ps -> argRep ps) .
                     toField)
 
-instance CovariantR r (S n) => CovariantR (QU r) n where
-  covmapR maps (QU x) = QU $ covmapR (maps ::: id) x
+instance CovariantR r (S n) => CovariantR (QE r) n where
+  covmapR maps (QE x) = QE $ covmapR (maps ::: id) x
