@@ -100,40 +100,11 @@ class NewMaps n argReps where
 
 instance NewMaps n '[] where newMaps _ _ = Maps
 
-instance (CovariantR argRep n, NewMaps n argReps, EvalMap argRep n) => NewMaps n (argRep ': argReps) where
+instance (CovariantR argRep n, NewMaps n argReps, Field argRep) => NewMaps n (argRep ': argReps) where
   newMaps maps _ = newMaps maps (Proxy :: Proxy argReps) :::
-                   evalMap (Proxy :: Proxy argRep) maps
-
-
-
-
--- the following is clearly dubious... indexed data types are not necessarily
--- covariant
-
-{- NB deprecated; Idxd no longer adds a parameter
-instance (EvalMap idx n, CovariantR r (S n)) => CovariantR (Idxd idx r) n where
-  covmapR maps = Idxd . covmapR (maps ::: evalMap (Proxy :: Proxy idx) maps) . unIdxd
--}
-class EvalMap (idx :: [*] -> *) n where
-  evalMap :: (NLong n ps, NLong n ps') =>
-             Proxy idx -> Maps n ps ps' -> Eval idx ps -> Eval idx ps'
-
-instance NthMap m n => EvalMap (Par m) n where
-  evalMap _ maps = nthMap (Proxy :: Proxy m) maps
-
-instance (WIso t, CovariantR (T t rs) n) =>
-  EvalMap (T (t :: k) rs) n where
-  evalMap :: forall (ps :: [*]) (ps' :: [*]). (NLong n ps, NLong n ps') =>
-             Proxy (T t rs) -> Maps n ps ps' ->
-             Eval (T t rs) ps -> Eval (T t rs) ps'
-  evalMap _ maps = toApps . unT . covmapR maps .
-                   (id :: T t rs ps -> T t rs ps) .
-                   T . frApps
-
-
-
-
-
+                   (frField . covmapR maps .
+                    (id :: argRep ps -> argRep ps) .
+                    toField)
 
 instance CovariantR r (S n) => CovariantR (QU r) n where
   covmapR maps (QU x) = QU $ covmapR (maps ::: id) x

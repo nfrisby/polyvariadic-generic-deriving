@@ -124,8 +124,13 @@ deriving instance Show (W t (MapEval argReps ps)) => Show (T t argReps ps)
 
 unT (T x) = x
 
+class Field (r :: [*] -> *) where
+  toField :: Eval r ps -> r ps
+  frField :: r ps -> Eval r ps
 
-
+instance Field (Par m) where toField = Par ; frField = unPar
+instance WIso t => Field (T t argReps) where
+  toField = T . frApps ; frField = toApps . unT
 
 
 {- NB deprecated -- I don't think it should add the parameter itself)

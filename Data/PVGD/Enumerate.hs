@@ -96,21 +96,10 @@ class NewEnums (argReps :: [[*] -> *]) (n :: Nat) where
   newEnums :: NLong n ps => Proxy argReps -> Enums n ps -> Enums (Length argReps) (MapEval argReps ps)
 
 instance NewEnums '[] n where newEnums _ _ = Enums
-instance (EnumerateR argRep n, NewEnums argReps n, EnumEval argRep n) =>
+instance (EnumerateR argRep n, NewEnums argReps n, Field argRep) =>
   NewEnums (argRep ': argReps) n where
+  newEnums :: forall (ps :: [*]). NLong n ps =>
+              Proxy (argRep ': argReps) -> Enums n ps ->
+              Enums (Length (argRep ': argReps)) (MapEval (argRep ': argReps) ps)
   newEnums _ enums = newEnums (Proxy :: Proxy argReps) enums :::
-                     enumEval (Proxy :: Proxy argRep) enums
-
-
-class EnumEval (argRep :: [*] -> *) (n :: Nat) where
-  enumEval :: NLong n ps => Proxy argRep -> Enums n ps -> [Eval argRep ps]
-
-instance NthEnumR m n => EnumEval (Par m) n where
-  enumEval _ = nthEnumR (Proxy :: Proxy m)
-
-instance (WIso t, EnumerateR (T t argReps) n) => EnumEval (T t argReps) n where
-  enumEval :: forall (ps :: [*]). NLong n ps =>
-              Proxy (T t argReps) -> Enums n ps -> [Eval (T t argReps) ps]
-  enumEval _ = map (toApps . unT) .
-               (id :: [T t argReps ps] -> [T t argReps ps]) .
-               enumR
+                     map (frField . (id :: argRep ps -> argRep ps)) (enumR enums)

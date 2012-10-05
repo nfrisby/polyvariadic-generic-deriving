@@ -105,3 +105,12 @@ type instance Apps (t :: * -> * -> * -> * -> *) ps
   = t (Nth (S (S (S Z))) ps) (Nth (S (S Z)) ps) (Nth (S Z) ps) (Nth Z ps)
 
 instance WIso (t :: * -> * -> * -> * -> *) where toApps = unW4 ; frApps = W4
+
+
+-- NB @asW@ is kind of useless, since @t@ is not determined by the argument
+-- @Apps t ps@.  All of the available @W t@s are polymorphic in @t@, and only
+-- require @Generic t@ -- in other words, I need Apps to be considered
+-- injective wrt @t@.
+
+-- asW :: WIso t => (W t ps -> W t ps') -> Apps t ps -> Apps t ps'
+-- asW f = toApps . f . frApps
