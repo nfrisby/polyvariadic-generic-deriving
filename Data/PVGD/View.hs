@@ -4,7 +4,7 @@
 
 {-# LANGUAGE FlexibleContexts, UndecidableInstances, GADTs #-}
 
-{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE ScopedTypeVariables, InstanceSigs, MultiParamTypeClasses, FlexibleInstances #-}
 
 {-
 
@@ -112,7 +112,13 @@ class Lemma_NLongLengthMapEval (fs :: [[*] -> *]) where
 
 instance Lemma_NLongLengthMapEval '[] where lemma_NLongLengthMapEval _ _ x = x
 instance Lemma_NLongLengthMapEval ts => Lemma_NLongLengthMapEval (t ': ts) where
-  lemma_NLongLengthMapEval _ pArg x = lemma_NLongLengthMapEval (Proxy :: Proxy ts) pArg x
+  lemma_NLongLengthMapEval :: forall (arg :: [*]) a.
+    Proxy (t ': ts) -> Proxy arg ->
+    (NLong (Length (t ': ts)) (MapEval (t ': ts) arg) => a) -> a
+  lemma_NLongLengthMapEval _ pArg x
+    = lemma_NLongLengthMapEval (Proxy :: Proxy ts) pArg $
+      lemma_NLong_inductive_0 (Proxy :: Proxy '(Length ts, Eval t arg, MapEval ts arg)) $
+      x
 
 
 

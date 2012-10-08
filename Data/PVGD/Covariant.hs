@@ -107,4 +107,10 @@ instance (CovariantR argRep n, NewMaps n argReps, Field argRep) => NewMaps n (ar
                     toField)
 
 instance CovariantR r (S n) => CovariantR (QE r) n where
-  covmapR maps (QE x) = QE $ covmapR (maps ::: id) x
+  covmapR :: forall (ps :: [*]) (ps' :: [*]).
+    (NLong n ps, NLong n ps') => Maps n ps ps' -> QE r ps -> QE r ps'
+  covmapR maps (QE x) = lemma_NLong_inductive_0 (proxyQE x (Proxy :: Proxy ps)) $
+                        lemma_NLong_inductive_0 (proxyQE x (Proxy :: Proxy ps')) $
+    QE $ covmapR (maps ::: id) x
+    where proxyQE :: forall r a ts. r (a ': ps) -> Proxy ts -> Proxy '(n, a, ts)
+          proxyQE _ _ = Proxy
