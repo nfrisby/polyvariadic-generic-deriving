@@ -116,9 +116,7 @@ instance Lemma_NLongLengthMapEval ts => Lemma_NLongLengthMapEval (t ': ts) where
     Proxy (t ': ts) -> Proxy arg ->
     (NLong (Length (t ': ts)) (MapEval (t ': ts) arg) => a) -> a
   lemma_NLongLengthMapEval _ pArg x
-    = lemma_NLongLengthMapEval (Proxy :: Proxy ts) pArg $
-      lemma_NLong_inductive_0 (Proxy :: Proxy '(Length ts, Eval t arg, MapEval ts arg)) $
-      x
+    = lemma_NLongLengthMapEval (Proxy :: Proxy ts) pArg x
 
 
 
@@ -139,12 +137,6 @@ instance WIso t => Field (T t argReps) where
   toField = T . frApps ; frField = toApps . unT
 
 
-{- NB deprecated -- I don't think it should add the parameter itself)
-newtype Idxd (idx :: [*] -> *) (r :: [*] -> *) (ps :: [*])
-  = Idxd (r (Eval idx ps ': ps))
-
-unIdxd (Idxd x) = x
--}
 
 data Idxd :: Nat -> ([*] -> *) -> ([*] -> *) -> [*] -> * where
   Idxd :: (Nth n ps ~ Eval idx ps) => r ps -> Idxd n idx r ps

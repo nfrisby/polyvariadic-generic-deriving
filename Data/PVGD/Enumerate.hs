@@ -63,11 +63,10 @@ instance (EnumerateR l n, EnumerateR r n) => EnumerateR (l :+: r) n where
 instance EnumerateR Void n where enumR _ = []
 
 instance (EnumerateR l n, EnumerateR r n) => EnumerateR (l :*: r) n where
-  enumR enums = diag (map (\x -> map (\y -> x:*:y) $ enumR enums ) $ enumR enums)
---  enumR enums = diag $
---                flip map (enumR enums) $ \l ->
---                flip map (enumR enums) $ \r ->
---                  l :*: r
+  enumR enums = diag $
+                flip map (enumR enums) $ \l ->
+                flip map (enumR enums) $ \r ->
+                  l :*: r
 instance EnumerateR U n where enumR _ = [U]
 
 
@@ -103,3 +102,32 @@ instance (EnumerateR argRep n, NewEnums argReps n, Field argRep) =>
               Enums (Length (argRep ': argReps)) (MapEval (argRep ': argReps) ps)
   newEnums _ enums = newEnums (Proxy :: Proxy argReps) enums :::
                      map (frField . (id :: argRep ps -> argRep ps)) (enumR enums)
+
+
+
+-- we can only enumerate existentials that do not occur as data
+instance EnumerateR r (S n) => EnumerateR (QE r) n where
+  enumR :: forall (ps :: [*]). NLong n ps => Enums n ps -> [QE r ps]
+  enumR enums = map QE $ enumR (enums ::: [])
+
+
+
+{-
+
+instance EnumerateR r n => EnumerateR (Idxd which idx r) n where
+  enumR enums = map Idxd $ enumR enums
+
+Data/PVGD/Enumerate.hs:123:21:
+    Could not deduce (Eval idx ps ~ Nth * which ps)
+    from the context (EnumerateR r n)
+      bound by the instance declaration
+      at Data/PVGD/Enumerate.hs:122:10-58
+    or from (NLong * n ps)
+      bound by the type signature for
+                 enumR :: NLong * n ps => Enums n ps -> [Idxd which idx r ps]
+      at Data/PVGD/Enumerate.hs:123:3-38
+
+TODO: perhaps Idxd needs to introduce the existential type (instead of letting
+QE do it) in order for this to work?
+
+-}

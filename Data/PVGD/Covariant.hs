@@ -1,4 +1,4 @@
-{-# LANGUAGE TypeFamilies, PolyKinds, DataKinds, Rank2Types, TypeOperators #-}
+{-# LANGUAGE TypeFamilies, PolyKinds, DataKinds, TypeOperators #-}
 
 {-# LANGUAGE DefaultSignatures, InstanceSigs #-}
 
@@ -109,8 +109,5 @@ instance (CovariantR argRep n, NewMaps n argReps, Field argRep) => NewMaps n (ar
 instance CovariantR r (S n) => CovariantR (QE r) n where
   covmapR :: forall (ps :: [*]) (ps' :: [*]).
     (NLong n ps, NLong n ps') => Maps n ps ps' -> QE r ps -> QE r ps'
-  covmapR maps (QE x) = lemma_NLong_inductive_0 (proxyQE x (Proxy :: Proxy ps)) $
-                        lemma_NLong_inductive_0 (proxyQE x (Proxy :: Proxy ps')) $
-    QE $ covmapR (maps ::: id) x
-    where proxyQE :: forall r a ts. r (a ': ps) -> Proxy ts -> Proxy '(n, a, ts)
-          proxyQE _ _ = Proxy
+  covmapR maps (QE x) = QE $ covmapR (maps ::: id) x
+
