@@ -18,15 +18,6 @@
 
    * cf "Enumerating Well-Typed Terms Generically" by Yakushev and Jeuring
 
- * modular use of EqFree
-
-   * the SamesImplies approach seems to require compositionality (word choice?
-     ... coinductiveness?) of NLong
-
-     * ie: NLong (S n) (t ': ts) must imply NLong n ts
-
-     * not sure how to establish this; closedness of Nat might help?
-
- * generic definition of EqFree
+ * generic definition of ParInfos and EqFree
 
    * I suspect Idxd needs to simultaneously constraint all indices

@@ -48,25 +48,14 @@ type instance Sames ('Index ': sames) (p ': ps) (p' ': ps') =
 data SamesDict sames ps ps' where
   SamesDict :: Sames sames ps ps' => SamesDict sames ps ps'
 
-{-
+
 class SamesImplies (antecedent :: [ParInfo]) (consequent :: [ParInfo]) where
-  samesImplies :: {-( NLong (Length antecedent) antecedent,
+  samesImplies :: ( NLong (Length antecedent) antecedent,
                    NLong (Length antecedent) ps,
-                   NLong (Length antecedent) ps') => -}
+                   NLong (Length antecedent) ps') =>
                   SamesDict antecedent ps ps' -> SamesDict consequent ps ps'
 
-type family Tail (ts :: [k]) :: [k]
-type instance Tail (t ': ts) = ts
-
 instance SamesImplies '[] '[] where samesImplies SamesDict = SamesDict
-instance (c ~ Param, SamesImplies as cs) =>
-  SamesImplies (Param ': as) (c ': cs) where
-  samesImplies :: forall ps ps'.
-    SamesDict (Param ': as) ps ps' -> SamesDict (c ': cs) ps ps'
-  samesImplies SamesDict =
-    case samesImplies (SamesDict :: SamesDict as (Tail ps) (Tail ps'))
-         :: SamesDict cs (Tail ps) (Tail ps') of
-    SamesDict -> SamesDict
 instance (c ~ Param, SamesImplies as cs) =>
   SamesImplies (Param ': as) (c ': cs) where
   samesImplies :: forall ps ps'. (NLong (Length (Param ': as)) (Param ': as),
@@ -74,9 +63,9 @@ instance (c ~ Param, SamesImplies as cs) =>
                                   NLong (Length (Param ': as)) ps') =>
     SamesDict (Param ': as) ps ps' -> SamesDict (c ': cs) ps ps'
   samesImplies SamesDict =
-    lemma_NLong_compositional (Proxy :: Proxy '(Length as, as, Param)) $
-    lemma_NLong_compositional (Proxy :: Proxy '(Length as, Tail ps, Nth Z ps)) $
-    lemma_NLong_compositional (Proxy :: Proxy '(Length as, Tail ps', Nth Z ps')) $
+--    lemma_NLong_compositional (Proxy :: Proxy '(Length as, as, Param)) $
+--    lemma_NLong_compositional (Proxy :: Proxy '(Length as, Tail ps, Nth Z ps)) $
+--    lemma_NLong_compositional (Proxy :: Proxy '(Length as, Tail ps', Nth Z ps')) $
     case samesImplies (SamesDict :: SamesDict as (Tail ps) (Tail ps'))
          :: SamesDict cs (Tail ps) (Tail ps') of
     SamesDict -> SamesDict
@@ -87,9 +76,9 @@ instance SamesImplies as cs =>
                                   NLong (Length (Index ': as)) ps') =>
     SamesDict (Index ': as) ps ps' -> SamesDict (Param ': cs) ps ps'
   samesImplies SamesDict =
-    lemma_NLong_compositional (Proxy :: Proxy '(Length as, as, Index)) $
-    lemma_NLong_compositional (Proxy :: Proxy '(Length as, Tail ps, Nth Z ps)) $
-    lemma_NLong_compositional (Proxy :: Proxy '(Length as, Tail ps', Nth Z ps')) $
+--    lemma_NLong_compositional (Proxy :: Proxy '(Length as, as, Index)) $
+--    lemma_NLong_compositional (Proxy :: Proxy '(Length as, Tail ps, Nth Z ps)) $
+--    lemma_NLong_compositional (Proxy :: Proxy '(Length as, Tail ps', Nth Z ps')) $
     case samesImplies (SamesDict :: SamesDict as (Tail ps) (Tail ps'))
          :: SamesDict cs (Tail ps) (Tail ps') of
     SamesDict -> SamesDict
@@ -100,13 +89,13 @@ instance SamesImplies as cs =>
                                   NLong (Length (Index ': as)) ps') =>
     SamesDict (Index ': as) ps ps' -> SamesDict (Index ': cs) ps ps'
   samesImplies SamesDict =
-    lemma_NLong_compositional (Proxy :: Proxy '(Length as, as, Index)) $
-    lemma_NLong_compositional (Proxy :: Proxy '(Length as, Tail ps, Nth Z ps)) $
-    lemma_NLong_compositional (Proxy :: Proxy '(Length as, Tail ps', Nth Z ps')) $
+--    lemma_NLong_compositional (Proxy :: Proxy '(Length as, as, Index)) $
+--    lemma_NLong_compositional (Proxy :: Proxy '(Length as, Tail ps, Nth Z ps)) $
+--    lemma_NLong_compositional (Proxy :: Proxy '(Length as, Tail ps', Nth Z ps')) $
     case samesImplies (SamesDict :: SamesDict as (Tail ps) (Tail ps'))
          :: SamesDict cs (Tail ps) (Tail ps') of
     SamesDict -> SamesDict
--}
+
 
 
 type family ParInfos (t :: k) :: [ParInfo]
@@ -116,7 +105,7 @@ class EqFree (t :: k) where
              NLong (CountArgs ('KindProxy :: KindProxy k)) ps',
              NLong (CountArgs ('KindProxy :: KindProxy k)) (ParInfos t)) =>
             W t ps -> W t ps' -> Maybe (SamesDict (ParInfos t) ps ps')
-{-
+
 eqFreeP :: (EqFree t,
             NLong (CountArgs ('KindProxy :: KindProxy k)) ps,
             NLong (CountArgs ('KindProxy :: KindProxy k)) ps',
@@ -142,6 +131,11 @@ test (Box tag1 a1 b1) (Box tag2 a2 b2) =
   Nothing -> False
   Just SamesDict -> a1 == a2 && b1 == b2
 
+data Dummy (b :: *) (a :: *) = Dummy
+type instance ParInfos Dummy = '[Param, Param]
+
+
+
 -- example applications of EqFree
 data Box' tag where Box' :: Eq b => tag (a :: *) b (c :: *) -> b -> Box' tag
 
@@ -154,7 +148,29 @@ test' (Box' tag1 b1) (Box' tag2 b2) =
   case eqFreeP (Proxy :: Proxy '[Param, Index, Param]) (W3 tag1) (W3 tag2) of
   Nothing -> False
   Just SamesDict -> b1 == b2
+
+data Dummy' (c :: *) (b :: *) (a :: *) = Dummy'
+type instance ParInfos Dummy' = '[Param, Param, Param]
+
+{-
+
+*Data.PVGD.EqFree> :t test (Box Dummy True 'c')
+<interactive>:1:1:
+    Couldn't match type 'Index with 'Param
+    In the expression: test (Box Dummy True 'c')
+
+*Data.PVGD.EqFree> :t  test (Box Example6_Base 0 'c')
+test (Box Example6_Base 0 'c') :: Box Example6 -> Bool
+
+*Data.PVGD.EqFree> :t test' (Box' Dummy' 'c')
+<interactive>:1:1:
+    Couldn't match type 'Index with 'Param
+    In the expression: test' (Box' Dummy' 'c')
+
 -}
+
+
+
 
 
 type instance ParInfos Maybe = '[Param]
